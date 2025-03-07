@@ -1,0 +1,26 @@
+{
+  "name": "@planner-buddy-backend/planner-buddy-backend-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "planner-buddy-backend-e2e",
+    "implicitDependencies": [
+      "planner-buddy-backend"
+    ],
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/planner-buddy-backend-e2e/jest.config.ts",
+          "passWithNoTests": true
+        },
+        "dependsOn": [
+          "planner-buddy-backend:build"
+        ]
+      }
+    }
+  }
+}

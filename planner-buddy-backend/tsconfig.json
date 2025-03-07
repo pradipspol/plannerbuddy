@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/planner-buddy-backend-e2e"
+    },
+    {
+      "path": "./apps/planner-buddy-backend"
+    }
+  ]
+}
