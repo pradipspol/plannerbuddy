@@ -1,0 +1,14 @@
+{
+  "usesTypeScript": true,
+  "usesStyledComponents": true,
+  "testLibrary": "None",
+  "component": {
+    "default": {
+      "path": "apps/planner-buddy-ui/src/components",
+      "withStyle": true,
+      "withTest": true,
+      "withStory": true,
+      "withLazy": true
+    }
+  }
+}

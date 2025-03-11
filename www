@@ -1,43 +1,18 @@
-// import express from 'express';
-
-// const host = process.env.HOST ?? 'localhost';
-// const port = process.env.PORT ? Number(process.env.PORT) : 3000;
-
-// const app = express();
-
-// app.get('/', (req, res) => {
-//   res.send({ message: 'Hello API' });
-// });
-
-// app.listen(port, host, () => {
-//   console.log(`[ ready ] http://${host}:${port}`);
-// });
-
-
-/**
- * 
- * 
- */
+#!/usr/bin/env node
 
 /**
  * Module dependencies.
  */
-// require ('dotenv').config();
-// require ('module-alias/register')
+require ('dotenv').config();
+require ('module-alias/register')
 
-// import https from 'https';
-import http from 'http';
-import { debug } from 'console';
-// const crypto = require('crypto');
+var https = require('https');
+var http = require('http');
+const crypto = require('crypto');
 
-import { AppRegistry } from './app';
-
-// let server: any;
-const port = 3000;
-
-const appRegistry = new AppRegistry()
-
-const app = appRegistry.app;
+var server;
+var port = 3000;
+var app = require('../app');
 
 console.info(`max http header size - ${http.maxHeaderSize}`);
 
@@ -47,7 +22,7 @@ app.set( 'port', port );
  * Create HTTPS server.
  */
 
-const server = http.createServer( app );
+server = http.createServer( app );
 
 // if ( config.privateKey && config.certificate ) {
 //     const credentials = { key: config.privateKey, cert: config.certificate };
@@ -86,15 +61,15 @@ function startServer () {
  * https://github.com/envoyproxy/envoy/issues/14981
  * https://medium.com/@in.live.in/puzzling-503s-and-istio-1bf504b9aae6
  */
-server.keepAliveTimeout = 1000000; //(serviceConfig.config.deployment.keepAliveTime * 1000);
+server.keepAliveTimeout = (serviceConfig.config.deployment.keepAliveTime * 1000);
 
 if((server.headersTimeout - server.keepAliveTimeout) < 1000) {
     server.headersTimeout = server.keepAliveTimeout + 1000;
 }
 
-// if(serviceConfig.config.deployment.debugSocketEvents) {
-//     server.on('connection', (client) => onConnection(client));
-// }
+if(serviceConfig.config.deployment.debugSocketEvents) {
+    server.on('connection', (client) => onConnection(client));
+}
 
 server.on('error', (error) => onError(error, port));
 server.on('listening', () => onListening(server));
@@ -108,13 +83,13 @@ server.on('listening', () => onListening(server));
  * Event listener for HTTP server "error" event.
  */
 
-function onError(error: any, port: any) {
+function onError(error, port) {
   console.error('onError:' + error);
   if (error.syscall !== 'listen') {
     throw error;
   }
 
-  const bind = typeof port === 'string'
+  var bind = typeof port === 'string'
     ? 'Pipe ' + port
     : 'Port ' + port;
 
@@ -137,26 +112,26 @@ function onError(error: any, port: any) {
  * Added logging till we identify reason behind 503 status code
  * @param socket
  */
-// function onConnection(socket: any) {
-//   const uuid = crypto.randomUUID();
-//   app.logAny('INFO', `onConnection connection created: ${uuid}`);
-//   socket.on('close', function(isError: any) {
-//     app.logAny('INFO', `connection closed: ${isError}, ${uuid}`);
-//   });
-//   socket.on('error', function(err: any) {
-//     app.logAny('ERROR', `connection error: ${err}, ${uuid}`);
-//   });
-// }
+function onConnection(socket) {
+  const uuid = crypto.randomUUID();
+  app.logAny('INFO', `onConnection connection created: ${uuid}`);
+  socket.on('close', function(isError) {
+    app.logAny('INFO', `connection closed: ${isError}, ${uuid}`);
+  });
+  socket.on('error', function(err) {
+    app.logAny('ERROR', `connection error: ${err}, ${uuid}`);
+  });
+}
 
 /**
  * Event listener for HTTP server "listening" event.
  */
 
-function onListening(server: http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>) {
-  const addr = server.address();
-  const bind = typeof addr === 'string'
+function onListening(server) {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
     ? 'pipe ' + addr
-    : 'port ' + addr?.port;
+    : 'port ' + addr.port;
   debug('Listening on ' + bind);
 }
 
@@ -168,17 +143,23 @@ function prepareProcessExit () {
         app.logAny('WARNING', 'Public Http server closed');
         // to do - other cleanups
     });
-
+    internalServer.close(() => {
+        app.logAny('WARNING', 'Internal Http server closed');
+        // to do - other cleanups
+    });
     // Close all existing idle connections - This API is newly added in Node18
     server.closeIdleConnections();
     app.logAny('WARNING', 'Public Http server Idle connections closed');
+    internalServer.closeIdleConnections();
     app.logAny('WARNING', 'Internal Http server Idle connections closed');
     app.logAny('WARNING', 'prepareProcessExit done');
 }
 
-function handleProcessExit (exitCode: number | undefined) {
+function handleProcessExit (exitCode) {
     app.logAny('WARNING', `handleProcessExit called: Exiting with code ${exitCode}`);
-    process.exit(exitCode)
+    serviceUtils.cleanUpServiceResources().then(() =>
+        process.exit(exitCode)
+    );
 }
 
 /**
