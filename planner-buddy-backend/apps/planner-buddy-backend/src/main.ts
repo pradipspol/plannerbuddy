@@ -30,12 +30,10 @@ import http from 'http';
 import { debug } from 'console';
 // const crypto = require('crypto');
 
-import { AppRegistry } from './app';
+import { appRegistry } from './app';
 
 // let server: any;
 const port = 3000;
-
-const appRegistry = new AppRegistry()
 
 const app = appRegistry.app;
 

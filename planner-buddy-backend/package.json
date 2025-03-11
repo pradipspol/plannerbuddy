@@ -10,6 +10,7 @@
     "axios": "^1.6.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "query-string": "^9.1.1",
     "urllib": "^4.6.11"
   },
   "devDependencies": {

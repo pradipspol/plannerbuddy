@@ -1,3 +1,5 @@
+import { Router } from "express"
+
 // const createError = require ('http-errors')
 const express = require ('express')
 const path = require ('path')
@@ -11,9 +13,19 @@ const cors = require ('cors')
 
 // const instanceName = config.instanceName
 
-export class AppRegistry {
+
+interface RouteOptions {
+  router?: Router, 
+  redirectOnAuth?: boolean, 
+  errorOnAuth?: boolean, 
+  onError?: unknown, 
+  authAction?: unknown,
+  internal?: boolean
+}
+
+class AppRegistry {
   app: any
-  paths: never[]
+  paths: any = []
   constructor () {
     this.app = express ()
 
@@ -117,7 +129,7 @@ export class AppRegistry {
      * The API is on unauthenticated path at ambassador (gateway level) 
      * May be, to avoid performance issues/delays, we should remove logging, once workflow is tested on dev(?)
      */
-    this.app.get ('/ping', (_req: any, res: any) => {
+    this.app.get ('/ping', (req: any, res: any) => {
       res.json ({ status: 'success'})
     });
 
@@ -242,64 +254,70 @@ export class AppRegistry {
     //     startServer ()
     //   })
     }
+  }
 
-    // const websocket = new (require ('./utils/websocket')) (
-    //   'wsapi', require ('./routes/wsserver'), require ('./build/swagger/utils/WebSocketService').onConnection
-    // )
-
-    // this.app.initWS = function (server) {
-    //   websocket.initialize (server)
-    // }
+  async getAuthInfo(req: any, flag: boolean) {
+      const cookie = req.cookies;
+      if (flag){
+        return {userId: "abc", cookie: cookie};
+      } else {
+        throw "Issue";
+      }
   }
   
   
-  // redirectOnAuth (req: any, res: any, next: any) {
-  //   const params = req.query;
-  //   const redirectUrl = params.redirect || req.originalUrl
-  //   const parsedUrl = queryParser.parseUrl (redirectUrl, {parseFragmentIdentifier: true})
-  //   const parms = (parsedUrl.query && parsedUrl.query.skipProfiles && 'skipProfiles=true&') || ''
-  //   let url = `${req.proxyPath}/signin/login.html?${parms}redirect=${redirectUrl}`;
-  //   return auth.getAuthInfo (req, true).catch((exp) => {
-  //       return undefined;
-  //   }).then((authInfo) => {
-  //       LogUtils.Loggable.logAny ('INFO',`UserId and Debug Info during sign-in: ${authInfo?.userId}, ${authInfo?.isDebugAuthInfo}`);
-  //       const userId = authInfo?.userId
-  //       if (userId && !(authInfo?.isDebugAuthInfo)) url += `&userid=${userId}`;
-  //       res.redirect (url);
-  //   });
-  // }
+  redirectOnAuth (req: any, res: any, next: any) {
+    const params = req.query;
+    const redirectUrl = params.redirect || req.originalUrl
+    const parsedUrl = redirectUrl; //queryParser.parseUrl (redirectUrl, {parseFragmentIdentifier: true})
+    const parms = (parsedUrl.query && parsedUrl.query.skipProfiles && 'skipProfiles=true&') || ''
+    let url = `${req.proxyPath}/signin/login.html?${parms}redirect=${redirectUrl}`;
+    return this.getAuthInfo (req, true).catch((exp: any) => {
+        return undefined;
+    }).then((authInfo: any) => {
+        //LogUtils.Loggable.logAny ('INFO',`UserId and Debug Info during sign-in: ${authInfo?.userId}, ${authInfo?.isDebugAuthInfo}`);
+        const userId = authInfo?.userId
+        if (userId && !(authInfo?.isDebugAuthInfo)) url += `&userid=${userId}`;
+        res.redirect (url);
+    });
+  }
   
-  // errorOnAuth (req, res, next) {
-  //   res.status (401).json ({status:401, error: 'Authentication failure'})
-  // }
+  errorOnAuth (req: any, res: any) {
+    res.status (401).json ({status:401, error: 'Authentication failure'})
+  }
   
   // getRouteData (routePath) {
   //   return this.paths.find (path => routePath.startsWith (path.prefix))
   // }
   
-  // add (route, {router, redirectOnAuth, errorOnAuth, onError, internal=true}) {
+  // add (route: string, {router, redirectOnAuth, errorOnAuth, onError, internal=true}) {
   //   const authAction = redirectOnAuth ? this.redirectOnAuth.bind (this) : errorOnAuth ? this.errorOnAuth.bind (this) : undefined
   //   this.addWithAuthAction (route, {router, authAction, onError, internal})
   // }
+
+  add (route: string, options:RouteOptions ){
+    options.authAction = options.redirectOnAuth ? this.redirectOnAuth.bind (this) : options.errorOnAuth ? this.errorOnAuth.bind (this) : undefined
+    this.addWithAuthAction (route, options)
+  }
   
   // addSwaggerHandlers () {
   //   this.add ('/docs', {redirectOnAuth: true, onError: this.swaggerRouter.onError, internal: true})
   //   this.add ('/v1', {errorOnAuth: true, onError: this.swaggerRouter.onError, internal: false})
   // }
   
-  // addWithAuthAction (route, {router, authAction, onError, internal}) {
-  //   if (router) {
-  //     if (route) {
-  //       this.app.use (route, router)
-  //     }
-  //     else {
-  //       this.app.use (router)
-  //     }
-  //   }
-  //   if (route && (authAction || onError)) {
-  //     this.paths.push ({prefix: route, authAction, onError, internal})
-  //   }
-  // }
+  addWithAuthAction (route: string, options: RouteOptions) {
+    if (options.router) {
+      if (route) {
+        this.app.use (route, options.router)
+      }
+      else {
+        this.app.use (options.router)
+      }
+    }
+    if (route && (options.authAction || options.onError)) {
+      this.paths.push ({prefix: route, authAction: options.authAction, onError: options.onError, internal: options.internal})
+    }
+  }
 
   // setErrorHandler () {
   //   // catch 404 and forward to error handler
@@ -323,10 +341,7 @@ export class AppRegistry {
   // }
 }
 
-//const appRegistry = new AppRegistry ()
-
-
-
+export const appRegistry = new AppRegistry()
 // // Routes registration with auth failure handling
 // appRegistry.add (undefined, {router: express.static (path.join (__dirname, 'public'))})
 // appRegistry.add('/dom/domjs',{router: express.static (path.join (__dirname, 'views/domjs'))});
@@ -352,14 +367,10 @@ export class AppRegistry {
 // buildUtils.updateCreoSaaSBuild(config.deployment.env, buildInfo.commitSha, undefined, buildInfo.release);
 // buildUtils.cacheBuildJSON (buildInfo);
 
-// appRegistry.add ('/about', { router: (req, res) => {
-//   buildUtils.getCreoSaaSBuild(config.deployment.env).then((creosaasBuildId) => {
-//     buildInfo.tag = config.deployment.releaseInfoTag;
-//     buildInfo.creosaasBuildId = creosaasBuildId;
-//     buildInfo.deployTime = config.deployment.releaseDeployTime || buildInfo.deployTime;
-//     res.json(buildInfo);
-//   })
-// }, internal: false});
+appRegistry.add ('/about', { router: (req: any, res: any) => {
+  const about = {app: "plannerBuddyBackend", version: '0.0.1'}
+  res.json(about)
+}, internal: false});
 
 // // This is for close.html and authenticate.html which we moved from mockup folder.
 // appRegistry.add ('/creo/creoauth', {redirectOnAuth: true, internal: false})
@@ -371,8 +382,3 @@ export class AppRegistry {
 //   res.redirect(redirectUrl);
 // }, internal: false});
 
-
-
-
-
-// module.exports = appRegistry.app
